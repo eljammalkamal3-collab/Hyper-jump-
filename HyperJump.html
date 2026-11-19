@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HyperJump</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f5;--ink:#16202e;--card:#ffffff;--accent:#ff5d3a;--mute:#6b7788;--line:#d5dbe3;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e141d;--ink:#eef1f5;--card:#1a2331;--mute:#93a0b3;--line:#2b384b}}
+:root[data-theme="dark"]{--bg:#0e141d;--ink:#eef1f5;--card:#1a2331;--mute:#93a0b3;--line:#2b384b}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Rubik",system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:8px;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+#wrap{position:relative;width:min(100%,380px);aspect-ratio:360/520;max-height:calc(100% - 70px)}
+canvas{width:100%;height:100%;display:block;border-radius:16px;touch-action:none}
+.panel{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(10,16,26,.82);border-radius:16px;color:#fff;text-align:center;padding:20px}
+.panel.on{display:flex}
+.panel h1{margin:0;font-size:34px;font-weight:800}
+.panel p{margin:0;font-size:17px;opacity:.85}
+button{font:inherit;font-weight:800;font-size:17px;border:0;border-radius:12px;padding:12px 22px;cursor:pointer;min-width:200px}
+button:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.pri{background:var(--accent);color:#fff}
+.sec{background:#fff;color:#16202e}
+#banner{width:min(100%,380px);height:50px;border:1px dashed var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--mute);font-size:14px;background:var(--card)}
+#ad .box{background:#fff;color:#16202e;border-radius:14px;padding:22px;width:85%}
+#ad .tag{font-size:13px;color:#6b7788}
+#ad .big{font-size:48px;margin:10px 0}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" width="360" height="520" aria-label="Jump game"></canvas>
+  <div class="panel on" id="start">
+    <h1>HyperJump</h1>
+    <p>Tap the screen to jump over the spikes</p>
+    <button class="pri" id="go">Start game</button>
+  </div>
+  <div class="panel" id="over">
+    <h1>Game over</h1>
+    <p id="res"></p>
+    <button class="pri" id="rev">Continue by watching an ad</button>
+    <button class="sec" id="again">Play again</button>
+  </div>
+  <div class="panel" id="ad">
+    <div class="box">
+      <div class="tag" id="adtag"></div>
+      <div class="big" id="adnum">5</div>
+      <div id="adtxt">This is a demo ad that simulates Unity Ads</div>
+      <button class="pri" id="adbtn" style="margin-top:14px" disabled>Wait</button>
+    </div>
+  </div>
+</div>
+<div id="banner">Demo banner ad space</div>
+
+<script>
+const cv=document.getElementById('c'),g=cv.getContext('2d'),W=360,H=520,GY=H-90;
+const $=id=>document.getElementById(id);
+let best=0;try{best=+localStorage.getItem('hjbest')||0}catch(e){}
+let deaths=0,state='menu',score=0,speed=260,spawn=1,obs=[],inv=0,revived=false,t=0;
+const P={x:60,y:GY-34,vy:0,w:34,h:34,on:true};
+const stars=Array.from({length:26},()=>({x:Math.random()*W,y:Math.random()*(GY-40),r:Math.random()*1.6+.5,s:Math.random()*20+8}));
+
+function reset(){P.y=GY-P.h;P.vy=0;P.on=true;obs=[];score=0;speed=260;spawn=1;inv=0;revived=false;state='play'}
+function jump(){if(state==='play'&&P.on){P.vy=-660;P.on=false}}
+function die(){
+  if(state!=='play'||inv>0)return;
+  state='over';deaths++;
+  const s=Math.floor(score);
+  if(s>best){best=s;try{localStorage.setItem('hjbest',best)}catch(e){}}
+  $('res').textContent='Score '+s+'  |  Best '+best;
+  $('rev').style.display=revived?'none':'';
+  if(deaths%3===0)showAd('interstitial',()=>$('over').classList.add('on'));
+  else $('over').classList.add('on');
+}
+// محاكاة الإعلانات (في Unity الحقيقية يتولى AdsManager هذا)
+function showAd(kind,done){
+  const rew=kind==='rewarded';
+  $('adtag').textContent=rew?'Rewarded ad':'Interstitial ad';
+  $('adtxt').textContent=rew?'Watch to the end to keep playing':'This is a demo ad that simulates Unity Ads';
+  const b=$('adbtn');b.disabled=true;b.textContent='Wait';
+  let n=5;$('adnum').textContent=n;$('ad').classList.add('on');
+  const iv=setInterval(()=>{n--;$('adnum').textContent=n;
+    if(n<=0){clearInterval(iv);b.disabled=false;b.textContent=rew?'Claim reward':'Close'}},1000);
+  b.onclick=()=>{$('ad').classList.remove('on');done()};
+}
+$('go').onclick=()=>{$('start').classList.remove('on');reset()};
+$('again').onclick=()=>{$('over').classList.remove('on');reset()};
+$('rev').onclick=()=>{$('over').classList.remove('on');
+  showAd('rewarded',()=>{revived=true;obs=[];P.y=GY-P.h;P.vy=0;P.on=true;inv=1.5;state='play'})};
+addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;jump()});
+addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();jump()}});
+
+function update(dt){
+  t+=dt;
+  stars.forEach(s=>{s.x-=s.s*dt*(state==='play'?speed/260:.3);if(s.x<0)s.x=W});
+  if(state!=='play')return;
+  score+=dt*10;speed=Math.min(620,speed+14*dt);if(inv>0)inv-=dt;
+  P.vy+=1900*dt;P.y+=P.vy*dt;
+  if(P.y>=GY-P.h){P.y=GY-P.h;P.vy=0;P.on=true}
+  spawn-=dt;
+  if(spawn<=0){const h=30+Math.random()*34,w=22+Math.random()*20;
+    obs.push({x:W+10,w,h});spawn=(0.95+Math.random()*0.9)*(300/speed)+0.35}
+  obs.forEach(o=>o.x-=speed*dt);
+  obs=obs.filter(o=>o.x+o.w>-10);
+  for(const o of obs){
+    if(P.x+P.w-5>o.x+3&&P.x+5<o.x+o.w-3&&P.y+P.h-4>GY-o.h)die();
+  }
+}
+function draw(){
+  const k=Math.min(1,speed/620);
+  const sky=g.createLinearGradient(0,0,0,GY);sky.addColorStop(0,'#1b2a5a');sky.addColorStop(1,'#e9825b');
+  g.fillStyle=sky;g.fillRect(0,0,W,H);
+  g.fillStyle='rgba(255,255,255,.75)';stars.forEach(s=>{g.beginPath();g.arc(s.x,s.y,s.r,0,7);g.fill()});
+  g.fillStyle='#ffd9a0';g.beginPath();g.arc(285,GY-70,34,0,7);g.fill();
+  g.fillStyle='#2a1f3d';g.fillRect(0,GY,W,H-GY);
+  g.fillStyle='#3d2e57';for(let i=0;i<10;i++){const x=((i*60-t*speed)%(W+60)+W+60)%(W+60)-30;g.fillRect(x,GY+10,30,4)}
+  g.fillStyle='#ff5d3a';obs.forEach(o=>{g.beginPath();g.moveTo(o.x,GY);g.lineTo(o.x+o.w/2,GY-o.h);g.lineTo(o.x+o.w,GY);g.fill()});
+  if(inv<=0||Math.floor(t*12)%2){
+    g.save();g.translate(P.x+P.w/2,P.y+P.h/2);g.rotate(P.on?0:Math.min(.5,P.vy/1500)-.2);
+    g.fillStyle='#f5f3ff';g.fillRect(-P.w/2,-P.h/2,P.w,P.h);
+    g.fillStyle='#16202e';g.fillRect(2,-8,6,6);g.fillRect(-10,-8,6,6);g.restore();
+  }
+  g.fillStyle='#fff';g.font='800 34px Rubik,sans-serif';g.textAlign='center';
+  g.fillText(Math.floor(score),W/2,52);
+  g.font='500 14px Rubik,sans-serif';g.textAlign='right';g.fillText('Best '+best,W-14,24);
+}
+let last=performance.now();
+function loop(n){const dt=Math.min(.033,(n-last)/1000);last=n;update(dt);draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
